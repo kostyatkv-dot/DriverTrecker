@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <title>Мій робочий день 🚐</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    body{margin:0;padding:0;background:#0f172a;font-family:"Segoe UI",system-ui,sans-serif;}
+    input[type=date],input[type=time],input[type=month],input[type=number],textarea{-webkit-appearance:none;appearance:none;}
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+    ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:#334155;border-radius:2px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback}=React;
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const DAYS_SHORT=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+const DAYS_FULL=['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
+const MONTHS_UA=['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+const MONTHS_GEN=['Січня','Лютого','Березня','Квітня','Травня','Червня','Липня','Серпня','Вересня','Жовтня','Листопада','Грудня'];
+const DEF_SHIFT2={1:'14:15',2:'12:15',3:'14:15',4:'14:15',5:'11:00'};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const t2m=t=>{if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;};
+const dur=(s,e)=>{const d=t2m(e)-t2m(s);return d>0?d:0;};
+const fmtH=m=>{const h=Math.floor(m/60),min=m%60;return min?`${h}г ${min}хв`:`${h} год`;};
+const fmtHD=m=>(m/60).toFixed(2);
+const today=()=>new Date().toISOString().split('T')[0];
+const wday=d=>new Date(d+'T12:00:00').getDay();
+const fmtDate=d=>{const dt=new Date(d+'T12:00:00');return`${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]} ${dt.getFullYear()}`;};
+const defaultEntry=(date,children)=>({
+  date,
+  shift1:{start:'06:00',end:''},
+  hasShift2:[1,2,3,4,5].includes(wday(date)),
+  shift2:{start:DEF_SHIFT2[wday(date)]||'14:15',end:''},
+  children:[...children],
+  kmStart:'',kmEnd:'',
+  locations:{gas:false,wash:false,mechanic:false,office:false},
+  notes:'',
+});
+
+// ─── Storage (localStorage) ──────────────────────────────────────────────────
+const store={
+  get:key=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch(e){return null;}},
+  set:(key,val)=>{try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
+};
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+function App(){
+  const[view,setView]=useState('home');
+  const[days,setDays]=useState([]);
+  const[settings,setSettings]=useState({hourlyRate:15,children:['Кайя','Ахмед','Симон','Валентин','Зої']});
+  const[editDate,setEditDate]=useState(null);
+  const[loaded,setLoaded]=useState(false);
+  const[deleteConfirm,setDeleteConfirm]=useState(null);
+
+  useEffect(()=>{
+    const d=store.get('days'); if(d) setDays(d);
+    const s=store.get('settings'); if(s) setSettings(s);
+    setLoaded(true);
+  },[]);
+
+  const saveDays=useCallback(d=>{setDays(d);store.set('days',d);},[]);
+  const saveSettings=useCallback(s=>{setSettings(s);store.set('settings',s);},[]);
+  const openEntry=date=>{setEditDate(date);setView('entry');};
+  const openNew=()=>openEntry(today());
+
+  if(!loaded)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'#0f172a',color:'#94a3b8',fontSize:'1.1rem'}}>Завантаження…</div>;
+
+  return(
+    <div style={{maxWidth:430,margin:'0 auto',minHeight:'100vh',display:'flex',flexDirection:'column',background:'#0f172a',color:'#e2e8f0'}}>
+      {deleteConfirm&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+          <div style={{background:'#1e293b',borderRadius:20,padding:28,width:'100%',maxWidth:340,border:'1px solid #334155'}}>
+            <p style={{fontWeight:700,fontSize:'1.05rem',marginBottom:8}}>Видалити запис?</p>
+            <p style={{color:'#94a3b8',fontSize:'.9rem',marginBottom:20}}>{fmtDate(deleteConfirm)}</p>
+            <div style={{display:'flex',gap:12}}>
+              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,padding:'12px',borderRadius:12,border:'1px solid #334155',background:'transparent',color:'#e2e8f0',cursor:'pointer',fontWeight:600}}>Скасувати</button>
+              <button onClick={()=>{saveDays(days.filter(d=>d.date!==deleteConfirm));setDeleteConfirm(null);}} style={{flex:1,padding:'12px',borderRadius:12,border:'none',background:'#ef4444',color:'#fff',cursor:'pointer',fontWeight:700}}>Видалити</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{flex:1,overflowY:'auto',paddingBottom:80}}>
+        {view==='home'    &&<HomeView    days={days} settings={settings} openNew={openNew} openEntry={openEntry}/>}
+        {view==='entry'   &&<EntryView   days={days} settings={settings} editDate={editDate} saveDays={saveDays} onDone={()=>setView('home')}/>}
+        {view==='journal' &&<JournalView days={days} settings={settings} openEntry={openEntry} onDelete={setDeleteConfirm}/>}
+        {view==='reports' &&<ReportsView days={days} settings={settings}/>}
+        {view==='settings'&&<SettingsView settings={settings} saveSettings={saveSettings}/>}
+      </div>
+      <BottomNav view={view} setView={setView}/>
+    </div>
+  );
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+function BottomNav({view,setView}){
+  const tabs=[{id:'home',icon:'⊞',label:'Головна'},{id:'journal',icon:'☰',label:'Журнал'},{id:'reports',icon:'◎',label:'Звіти'},{id:'settings',icon:'⚙',label:'Налаш.'}];
+  return(
+    <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#1e293b',borderTop:'1px solid #334155',display:'flex',zIndex:50}}>
+      {tabs.map(t=>(
+        <button key={t.id} onClick={()=>setView(t.id)} style={{flex:1,padding:'10px 0 12px',display:'flex',flexDirection:'column',alignItems:'center',gap:3,border:'none',background:'transparent',cursor:'pointer',color:view===t.id?'#f59e0b':'#475569',transition:'color .2s'}}>
+          <span style={{fontSize:22}}>{t.icon}</span>
+          <span style={{fontSize:10,fontWeight:600,letterSpacing:.5}}>{t.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── UI primitives ────────────────────────────────────────────────────────────
+const Card=({children,style={}})=><div style={{background:'#1e293b',borderRadius:16,padding:16,border:'1px solid #334155',...style}}>{children}</div>;
+const ST=({children})=><p style={{fontSize:'.75rem',fontWeight:700,letterSpacing:1.2,color:'#64748b',textTransform:'uppercase',marginBottom:12}}>{children}</p>;
+const Div=()=><div style={{height:1,background:'#334155',margin:'8px 0'}}/>;
+const Tag=({children})=><span style={{background:'rgba(245,158,11,.1)',border:'1px solid rgba(245,158,11,.3)',color:'#fcd34d',borderRadius:20,padding:'2px 10px',fontSize:'.72rem',fontWeight:600}}>{children}</span>;
+const Chip=({label,val})=><div style={{background:'#0f172a',borderRadius:8,padding:'6px 8px'}}><p style={{fontSize:'.6rem',color:'#475569',marginBottom:2}}>{label}</p><p style={{fontSize:'.8rem',fontWeight:700,color:'#e2e8f0'}}>{val}</p></div>;
+const SB=({icon,title,main,sub,accent})=>(
+  <div style={{background:'#1e293b',borderRadius:16,padding:14,border:'1px solid #334155'}}>
+    <div style={{fontSize:22,marginBottom:6}}>{icon}</div>
+    <p style={{fontSize:'.7rem',color:'#64748b',letterSpacing:.8,textTransform:'uppercase'}}>{title}</p>
+    <p style={{fontSize:'1.2rem',fontWeight:800,color:'#f1f5f9',marginTop:2}}>{main}</p>
+    <p style={{fontSize:'.75rem',color:accent||'#94a3b8'}}>{sub}</p>
+  </div>
+);
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
+function HomeView({days,settings,openNew,openEntry}){
+  const td=today();
+  const te=days.find(d=>d.date===td);
+  const now=new Date();
+  const mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()||7)-1));
+  const wDays=days.filter(d=>new Date(d.date+'T12:00:00')>=mon);
+  const wMin=wDays.reduce((s,d)=>s+d.totalMinutes,0);
+  const mKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const mDays=days.filter(d=>d.date.startsWith(mKey));
+  const mMin=mDays.reduce((s,d)=>s+d.totalMinutes,0);
+  const mEarn=(mMin/60*settings.hourlyRate).toFixed(2);
+  return(
+    <div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div>
+          <p style={{fontSize:'.75rem',color:'#64748b',letterSpacing:1,textTransform:'uppercase',marginBottom:4}}>Облік робочого часу</p>
+          <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#f1f5f9',lineHeight:1.1}}>Мій<br/>робочий день</h1>
+        </div>
+        <div style={{fontSize:40}}>🚐</div>
+      </div>
+      <p style={{color:'#64748b',fontSize:'.85rem',marginTop:-8}}>{DAYS_FULL[wday(td)]}, {fmtDate(td)}</p>
+      <div style={{background:te?'linear-gradient(135deg,#166534,#15803d)':'linear-gradient(135deg,#1d4ed8,#2563eb)',borderRadius:20,padding:20,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',right:-10,top:-10,fontSize:70,opacity:.15}}>⏱</div>
+        <p style={{fontSize:'.7rem',fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(255,255,255,.7)',marginBottom:6}}>Сьогодні</p>
+        {te?(
+          <>
+            <p style={{fontSize:'2.2rem',fontWeight:900,color:'#fff'}}>{fmtH(te.totalMinutes)}</p>
+            <div style={{display:'flex',gap:16,marginTop:8,flexWrap:'wrap'}}>
+              <span style={{fontSize:'.8rem',color:'rgba(255,255,255,.8)'}}>👧 {te.children.length} дітей</span>
+              <span style={{fontSize:'.8rem',color:'rgba(255,255,255,.8)'}}>🚗 {te.km||0} км</span>
+              <span style={{fontSize:'.8rem',color:'rgba(255,255,255,.8)'}}>💶 {(te.totalMinutes/60*settings.hourlyRate).toFixed(2)} €</span>
+            </div>
+            <button onClick={()=>openEntry(te.date)} style={{marginTop:14,background:'rgba(255,255,255,.2)',border:'none',color:'#fff',padding:'8px 18px',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:'.85rem'}}>Редагувати</button>
+          </>
+        ):(
+          <>
+            <p style={{color:'rgba(255,255,255,.7)',marginBottom:14,fontSize:'.9rem'}}>Ще не заповнено</p>
+            <button onClick={openNew} style={{background:'#fff',border:'none',color:'#1d4ed8',padding:'10px 24px',borderRadius:12,cursor:'pointer',fontWeight:800,fontSize:'.95rem'}}>+ Додати день</button>
+          </>
+        )}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <SB icon="📅" title="Цей тиждень" main={fmtH(wMin)} sub={`${wDays.length} дн.`} accent="#7c3aed"/>
+        <SB icon="📆" title="Цей місяць"  main={fmtH(mMin)} sub={`${mEarn} €`}         accent="#b45309"/>
+      </div>
+      {days.length>0&&(
+        <div>
+          <ST>Останні записи</ST>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {[...days].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).map(d=>(
+              <div key={d.date} onClick={()=>openEntry(d.date)} style={{background:'#1e293b',border:'1px solid #334155',borderRadius:12,padding:'12px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+                <div>
+                  <p style={{fontWeight:700,fontSize:'.9rem',color:'#e2e8f0'}}>{DAYS_SHORT[wday(d.date)]}, {new Date(d.date+'T12:00:00').getDate()} {MONTHS_GEN[new Date(d.date+'T12:00:00').getMonth()]}</p>
+                  <p style={{fontSize:'.75rem',color:'#64748b',marginTop:2}}>👧 {d.children.length} · 🚗 {d.km||0} км</p>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <p style={{fontWeight:800,color:'#f59e0b',fontSize:'.95rem'}}>{fmtH(d.totalMinutes)}</p>
+                  <p style={{fontSize:'.75rem',color:'#64748b'}}>{(d.totalMinutes/60*settings.hourlyRate).toFixed(2)} €</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Entry ────────────────────────────────────────────────────────────────────
+function EntryView({days,settings,editDate,saveDays,onDone}){
+  const ex=days.find(d=>d.date===editDate);
+  const init=ex||defaultEntry(editDate,settings.children);
+  const[date,setDate]=useState(init.date);
+  const[s1s,setS1s]=useState(init.shift1.start);
+  const[s1e,setS1e]=useState(init.shift1.end);
+  const[has2,setHas2]=useState(init.hasShift2);
+  const[s2s,setS2s]=useState(init.shift2.start);
+  const[s2e,setS2e]=useState(init.shift2.end);
+  const[kids,setKids]=useState(init.children);
+  const[kmStart,setKmStart]=useState(init.kmStart!=null?String(init.kmStart):'');
+  const[kmEnd,setKmEnd]=useState(init.kmEnd!=null?String(init.kmEnd):'');
+  const[locs,setLocs]=useState(init.locations);
+  const[notes,setNotes]=useState(init.notes);
+  const[error,setError]=useState('');
+
+  const handleDate=nd=>{
+    setDate(nd);
+    if(!ex){const wd=wday(nd);setHas2([1,2,3,4,5].includes(wd));setS2s(DEF_SHIFT2[wd]||'14:15');}
+  };
+  const d1=dur(s1s,s1e),d2=has2?dur(s2s,s2e):0,tot=d1+d2;
+  const toggleKid=n=>setKids(p=>p.includes(n)?p.filter(c=>c!==n):[...p,n]);
+  const allKids=()=>setKids(kids.length===settings.children.length?[...settings.children].slice(0,0):[...settings.children]);
+  const toggleLoc=k=>setLocs(p=>({...p,[k]:!p[k]}));
+  const kmDriven=kmStart&&kmEnd?Math.max(0,Number(kmEnd)-Number(kmStart)):0;
+
+  const handleSave=()=>{
+    if(!s1e){setError('Вкажіть час закінчення 1-ї зміни');return;}
+    if(has2&&!s2e){setError('Вкажіть час закінчення 2-ї зміни');return;}
+    setError('');
+    const entry={date,shift1:{start:s1s,end:s1e},hasShift2:has2,shift2:has2?{start:s2s,end:s2e}:{start:'',end:''},children:kids,kmStart:Number(kmStart)||0,kmEnd:Number(kmEnd)||0,km:kmDriven,locations:locs,notes,totalMinutes:tot,shift1Minutes:d1,shift2Minutes:d2};
+    saveDays([...days.filter(d=>d.date!==date),entry].sort((a,b)=>a.date.localeCompare(b.date)));
+    onDone();
+  };
+
+  const inp={width:'100%',background:'#0f172a',border:'1px solid #334155',borderRadius:12,padding:'12px 14px',color:'#e2e8f0',fontSize:'1rem',outline:'none'};
+  return(
+    <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <button onClick={onDone} style={{background:'#1e293b',border:'1px solid #334155',color:'#94a3b8',borderRadius:10,padding:'8px 12px',cursor:'pointer',fontSize:'1.1rem'}}>←</button>
+        <h2 style={{fontWeight:800,fontSize:'1.2rem',color:'#f1f5f9'}}>{ex?'Редагувати день':'Новий робочий день'}</h2>
+      </div>
+
+      <Card><ST>📅 Дата</ST>
+        <input type="date" value={date} onChange={e=>handleDate(e.target.value)} style={inp}/>
+        <p style={{marginTop:8,fontSize:'.8rem',color:'#64748b'}}>{DAYS_FULL[wday(date)]}</p>
+      </Card>
+
+      <Card><ST>🌅 Перша зміна</ST>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Початок</p><input type="time" value={s1s} onChange={e=>setS1s(e.target.value)} style={inp}/></div>
+          <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Кінець</p><input type="time" value={s1e} onChange={e=>setS1e(e.target.value)} style={inp}/></div>
+        </div>
+        {d1>0&&<p style={{marginTop:8,fontSize:'.82rem',color:'#22d3ee'}}>⏱ {fmtH(d1)}</p>}
+      </Card>
+
+      <Card>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <ST>🌇 Друга зміна</ST>
+          <div onClick={()=>setHas2(!has2)} style={{width:42,height:24,borderRadius:12,background:has2?'#f59e0b':'#334155',position:'relative',transition:'background .2s',cursor:'pointer',flexShrink:0}}>
+            <div style={{position:'absolute',top:3,left:has2?20:3,width:18,height:18,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+          </div>
+        </div>
+        {has2&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Початок</p><input type="time" value={s2s} onChange={e=>setS2s(e.target.value)} style={inp}/></div>
+              <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Кінець</p><input type="time" value={s2e} onChange={e=>setS2e(e.target.value)} style={inp}/></div>
+            </div>
+            {d2>0&&<p style={{marginTop:8,fontSize:'.82rem',color:'#22d3ee'}}>⏱ {fmtH(d2)}</p>}
+          </>
+        )}
+      </Card>
+
+      {tot>0&&(
+        <div style={{background:'linear-gradient(135deg,#b45309,#d97706)',borderRadius:16,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div><p style={{fontSize:'.7rem',color:'rgba(255,255,255,.7)',letterSpacing:1,textTransform:'uppercase'}}>Всього за день</p><p style={{fontSize:'1.8rem',fontWeight:900,color:'#fff'}}>{fmtH(tot)}</p></div>
+          <div style={{textAlign:'right'}}><p style={{fontSize:'.75rem',color:'rgba(255,255,255,.7)'}}>Заробіток</p><p style={{fontSize:'1.4rem',fontWeight:800,color:'#fff'}}>{(tot/60*settings.hourlyRate).toFixed(2)} €</p></div>
+        </div>
+      )}
+
+      <Card>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <ST>👧 Діти ({kids.length}/{settings.children.length})</ST>
+          <button onClick={allKids} style={{fontSize:'.75rem',color:'#f59e0b',background:'transparent',border:'none',cursor:'pointer',fontWeight:700}}>{kids.length===settings.children.length?'Зняти всіх':'Всі'}</button>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {settings.children.map(c=>(
+            <div key={c} onClick={()=>toggleKid(c)} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:kids.includes(c)?'rgba(245,158,11,.1)':'#0f172a',border:`1px solid ${kids.includes(c)?'#f59e0b':'#334155'}`,borderRadius:10,cursor:'pointer',transition:'all .15s'}}>
+              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${kids.includes(c)?'#f59e0b':'#475569'}`,background:kids.includes(c)?'#f59e0b':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                {kids.includes(c)&&<span style={{color:'#fff',fontSize:13,fontWeight:900}}>✓</span>}
+              </div>
+              <span style={{color:kids.includes(c)?'#fcd34d':'#94a3b8',fontWeight:kids.includes(c)?700:400}}>{c}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card><ST>🚗 Кілометраж</ST>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Показник на початку</p><input type="number" value={kmStart} onChange={e=>setKmStart(e.target.value)} placeholder="0" style={inp}/></div>
+          <div><p style={{fontSize:'.72rem',color:'#64748b',marginBottom:5}}>Показник на кінці</p><input type="number" value={kmEnd} onChange={e=>setKmEnd(e.target.value)} placeholder="0" style={inp}/></div>
+        </div>
+        {kmStart&&kmEnd&&Number(kmEnd)>Number(kmStart)&&(
+          <div style={{marginTop:12,background:'rgba(167,139,250,.1)',border:'1px solid rgba(167,139,250,.3)',borderRadius:12,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:'.8rem',color:'#94a3b8'}}>Пройдено за день</span>
+            <span style={{fontWeight:800,color:'#a78bfa',fontSize:'1.1rem'}}>{kmDriven} км</span>
+          </div>
+        )}
+      </Card>
+
+      <Card><ST>📍 Відвідані місця</ST>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {[{k:'gas',i:'⛽',l:'Заправка'},{k:'wash',i:'🚿',l:'Автомийка'},{k:'mechanic',i:'🔧',l:'Майстерня'},{k:'office',i:'🏢',l:'Офіс'}].map(({k,i,l})=>(
+            <button key={k} onClick={()=>toggleLoc(k)} style={{padding:'14px 8px',borderRadius:12,border:`1px solid ${locs[k]?'#f59e0b':'#334155'}`,background:locs[k]?'rgba(245,158,11,.15)':'#0f172a',color:locs[k]?'#fcd34d':'#64748b',cursor:'pointer',fontWeight:700,fontSize:'.85rem',display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+              <span style={{fontSize:22}}>{i}</span>{l}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card><ST>📝 Нотатки</ST>
+        <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Додаткові нотатки…" rows={3} style={{...inp,resize:'none',lineHeight:1.5,width:'100%'}}/>
+      </Card>
+
+      {error&&<p style={{color:'#f87171',textAlign:'center',fontSize:'.85rem'}}>{error}</p>}
+      <button onClick={handleSave} style={{background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',padding:'16px',borderRadius:16,fontWeight:800,fontSize:'1.05rem',cursor:'pointer',marginBottom:8}}>Зберегти запис</button>
+    </div>
+  );
+}
+
+// ─── Journal ──────────────────────────────────────────────────────────────────
+function JournalView({days,settings,openEntry,onDelete}){
+  const now=new Date();
+  const[mKey,setMKey]=useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  const filtered=[...days].filter(d=>d.date.startsWith(mKey)).sort((a,b)=>b.date.localeCompare(a.date));
+  return(
+    <div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14}}>
+      <h2 style={{fontWeight:800,fontSize:'1.3rem',color:'#f1f5f9'}}>☰ Журнал</h2>
+      <input type="month" value={mKey} onChange={e=>setMKey(e.target.value)} style={{background:'#1e293b',border:'1px solid #334155',borderRadius:12,padding:'12px 14px',color:'#e2e8f0',fontSize:'1rem',outline:'none',width:'100%'}}/>
+      {filtered.length===0?(
+        <div style={{textAlign:'center',padding:'48px 0',color:'#475569'}}><p style={{fontSize:40}}>📭</p><p>Немає записів за цей місяць</p></div>
+      ):(
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {filtered.map(day=>(
+            <div key={day.date} style={{background:'#1e293b',border:'1px solid #334155',borderRadius:16,overflow:'hidden'}}>
+              <div style={{padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div><p style={{fontWeight:800,color:'#f1f5f9',fontSize:'.95rem'}}>{DAYS_FULL[wday(day.date)]}</p><p style={{fontSize:'.8rem',color:'#64748b'}}>{fmtDate(day.date)}</p></div>
+                <div style={{textAlign:'right'}}><p style={{fontWeight:900,color:'#f59e0b',fontSize:'1.1rem'}}>{fmtH(day.totalMinutes)}</p><p style={{fontSize:'.78rem',color:'#64748b'}}>{(day.totalMinutes/60*settings.hourlyRate).toFixed(2)} €</p></div>
+              </div>
+              <Div/>
+              <div style={{padding:'10px 16px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                <Chip label="1-ша зміна" val={fmtH(day.shift1Minutes)}/>
+                <Chip label="2-га зміна" val={day.hasShift2?fmtH(day.shift2Minutes):'—'}/>
+                <Chip label="Пройдено" val={`${day.km||0} км`}/>
+              </div>
+              {(day.kmStart||day.kmEnd)&&<div style={{padding:'0 16px 8px',fontSize:'.72rem',color:'#475569'}}>Одометр: {day.kmStart||0} → {day.kmEnd||0} км</div>}
+              <div style={{padding:'4px 16px 10px',fontSize:'.78rem',color:'#64748b'}}>👧 {day.children.length>0?day.children.join(', '):'немає'}</div>
+              {Object.values(day.locations).some(Boolean)&&(
+                <div style={{padding:'0 16px 10px',display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {day.locations.gas&&<Tag>⛽ Заправка</Tag>}
+                  {day.locations.wash&&<Tag>🚿 Мийка</Tag>}
+                  {day.locations.mechanic&&<Tag>🔧 Майстерня</Tag>}
+                  {day.locations.office&&<Tag>🏢 Офіс</Tag>}
+                </div>
+              )}
+              <Div/>
+              <div style={{display:'flex',padding:'10px 12px',gap:8}}>
+                <button onClick={()=>openEntry(day.date)} style={{flex:1,padding:'10px',borderRadius:10,border:'1px solid #334155',background:'transparent',color:'#60a5fa',cursor:'pointer',fontWeight:700,fontSize:'.85rem'}}>Редагувати</button>
+                <button onClick={()=>onDelete(day.date)} style={{padding:'10px 16px',borderRadius:10,border:'1px solid #334155',background:'transparent',color:'#f87171',cursor:'pointer',fontSize:'1.1rem'}}>🗑</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+function ReportsView({days,settings}){
+  const now=new Date();
+  const[year,setYear]=useState(now.getFullYear());
+  const[month,setMonth]=useState(now.getMonth());
+  const prev=()=>{if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);};
+  const next=()=>{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);};
+  const mKey=`${year}-${String(month+1).padStart(2,'0')}`;
+  const mDays=[...days].filter(d=>d.date.startsWith(mKey)).sort((a,b)=>a.date.localeCompare(b.date));
+  const totalMin=mDays.reduce((s,d)=>s+d.totalMinutes,0);
+  const totalKm=mDays.reduce((s,d)=>s+(d.km||0),0);
+  const earn=(totalMin/60*settings.hourlyRate).toFixed(2);
+  const lc=mDays.reduce((a,d)=>({gas:a.gas+(d.locations?.gas?1:0),wash:a.wash+(d.locations?.wash?1:0),mechanic:a.mechanic+(d.locations?.mechanic?1:0),office:a.office+(d.locations?.office?1:0)}),{gas:0,wash:0,mechanic:0,office:0});
+  const yearMin=days.filter(d=>d.date.startsWith(String(year))).reduce((s,d)=>s+d.totalMinutes,0);
+  const yearEarn=(yearMin/60*settings.hourlyRate).toFixed(2);
+
+  const exportCSV=()=>{
+    const bom='\uFEFF';
+    const h=['Дата','День тижня','1-ша зміна (год)','2-га зміна (год)','Всього (год)','Одометр початок','Одометр кінець','Пройдено (км)','Діти','К-сть дітей','Заправка','Мийка','Майстерня','Офіс','Заробіток (€)','Нотатки'];
+    const rows=mDays.map(d=>[d.date,DAYS_FULL[wday(d.date)],fmtHD(d.shift1Minutes),d.hasShift2?fmtHD(d.shift2Minutes):'0',fmtHD(d.totalMinutes),d.kmStart||0,d.kmEnd||0,d.km||0,d.children.join('; '),d.children.length,d.locations?.gas?'Так':'Ні',d.locations?.wash?'Так':'Ні',d.locations?.mechanic?'Так':'Ні',d.locations?.office?'Так':'Ні',(d.totalMinutes/60*settings.hourlyRate).toFixed(2),d.notes||'']);
+    const csv=bom+[h,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`робочий_час_${mKey}.csv`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+
+  return(
+    <div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14}}>
+      <h2 style={{fontWeight:800,fontSize:'1.3rem',color:'#f1f5f9'}}>◎ Звіти</h2>
+      <div style={{background:'#1e293b',border:'1px solid #334155',borderRadius:16,padding:14,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <button onClick={prev} style={{background:'#0f172a',border:'1px solid #334155',color:'#94a3b8',width:38,height:38,borderRadius:10,cursor:'pointer',fontSize:'1.2rem',fontWeight:700}}>‹</button>
+        <div style={{textAlign:'center'}}><p style={{fontWeight:800,color:'#f1f5f9',fontSize:'1.1rem'}}>{MONTHS_UA[month]} {year}</p><p style={{fontSize:'.75rem',color:'#64748b'}}>{mDays.length} робочих днів</p></div>
+        <button onClick={next} style={{background:'#0f172a',border:'1px solid #334155',color:'#94a3b8',width:38,height:38,borderRadius:10,cursor:'pointer',fontSize:'1.2rem',fontWeight:700}}>›</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <SB icon="⏱" title="Годин всього" main={fmtH(totalMin)}    sub={`≈ ${fmtHD(totalMin)} год`} accent="#22d3ee"/>
+        <SB icon="💶" title="Заробіток"    main={`${earn} €`}       sub={`${settings.hourlyRate} €/год`} accent="#4ade80"/>
+        <SB icon="🚗" title="Кілометри"   main={`${totalKm} км`}   sub={`${mDays.length} днів`} accent="#a78bfa"/>
+        <SB icon="⛽" title="Зупинки"     main={`${lc.gas}×⛽ ${lc.wash}×🚿`} sub={`${lc.mechanic}×🔧 ${lc.office}×🏢`} accent="#fb923c"/>
+      </div>
+      <Card><ST>Рік {year} — підсумок</ST>
+        <div style={{display:'flex',justifyContent:'space-between'}}>
+          <div><p style={{color:'#64748b',fontSize:'.8rem'}}>Відпрацьовано</p><p style={{fontWeight:800,fontSize:'1.1rem',color:'#f1f5f9'}}>{fmtH(yearMin)}</p></div>
+          <div style={{textAlign:'right'}}><p style={{color:'#64748b',fontSize:'.8rem'}}>Зароблено</p><p style={{fontWeight:800,fontSize:'1.1rem',color:'#4ade80'}}>{yearEarn} €</p></div>
+        </div>
+      </Card>
+      {mDays.length>0&&(
+        <Card style={{padding:0,overflow:'hidden'}}>
+          <div style={{padding:'14px 16px',borderBottom:'1px solid #334155'}}><p style={{fontWeight:700,color:'#f1f5f9',fontSize:'.9rem'}}>По днях</p></div>
+          {mDays.map((d,i)=>(
+            <div key={d.date} style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:i<mDays.length-1?'1px solid #1e293b':'none',background:i%2?'#1a2537':'transparent'}}>
+              <div>
+                <p style={{fontSize:'.85rem',fontWeight:700,color:'#e2e8f0'}}>{new Date(d.date+'T12:00:00').getDate()} {MONTHS_GEN[new Date(d.date+'T12:00:00').getMonth()]}</p>
+                <p style={{fontSize:'.72rem',color:'#475569'}}>{DAYS_SHORT[wday(d.date)]} · {d.children.length} дітей · {d.km||0} км</p>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <p style={{fontSize:'.88rem',fontWeight:800,color:'#f59e0b'}}>{fmtH(d.totalMinutes)}</p>
+                <p style={{fontSize:'.72rem',color:'#475569'}}>{(d.totalMinutes/60*settings.hourlyRate).toFixed(2)} €</p>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+      {mDays.length===0&&<div style={{textAlign:'center',padding:'40px 0',color:'#475569'}}><p style={{fontSize:40}}>📭</p><p>Немає даних за цей місяць</p></div>}
+      {mDays.length>0&&<button onClick={exportCSV} style={{background:'linear-gradient(135deg,#166534,#15803d)',border:'none',color:'#fff',padding:'16px',borderRadius:16,fontWeight:800,fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>📥 Експортувати CSV ({MONTHS_UA[month]} {year})</button>}
+    </div>
+  );
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function SettingsView({settings,saveSettings}){
+  const[rate,setRate]=useState(String(settings.hourlyRate));
+  const[kids,setKids]=useState([...settings.children]);
+  const[saved,setSaved]=useState(false);
+  const setKid=(i,v)=>{const n=[...kids];n[i]=v;setKids(n);};
+  const handleSave=()=>{saveSettings({hourlyRate:Number(rate)||15,children:kids});setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const inp={width:'100%',background:'#0f172a',border:'1px solid #334155',borderRadius:12,padding:'12px 14px',color:'#e2e8f0',fontSize:'1rem',outline:'none'};
+  return(
+    <div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14}}>
+      <h2 style={{fontWeight:800,fontSize:'1.3rem',color:'#f1f5f9'}}>⚙ Налаштування</h2>
+      <Card><ST>💶 Вартість години роботи</ST>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <input type="number" value={rate} onChange={e=>setRate(e.target.value)} step="0.5" placeholder="15" style={{...inp,flex:1}}/>
+          <span style={{color:'#64748b',fontWeight:700,fontSize:'1.1rem',whiteSpace:'nowrap'}}>€ / год</span>
+        </div>
+      </Card>
+      <Card><ST>👧 Імена дітей</ST>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {kids.map((c,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{width:28,height:28,borderRadius:'50%',background:'rgba(245,158,11,.15)',border:'1px solid rgba(245,158,11,.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#f59e0b',fontWeight:800,fontSize:'.85rem',flexShrink:0}}>{i+1}</span>
+              <input type="text" value={c} onChange={e=>setKid(i,e.target.value)} placeholder={`Дитина ${i+1}`} style={inp}/>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card><ST>⏰ Стандартний початок 2-ї зміни</ST>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {[['Понеділок','14:15'],['Вівторок','12:15'],['Середа','14:15'],['Четвер','14:15'],["П'ятниця",'11:00']].map(([d,t])=>(
+            <div key={d} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #1e293b'}}>
+              <span style={{color:'#94a3b8',fontSize:'.85rem'}}>{d}</span>
+              <span style={{color:'#f59e0b',fontWeight:700,fontSize:'.85rem'}}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{marginTop:10,fontSize:'.75rem',color:'#475569'}}>Час підставляється автоматично. Його можна змінити для кожного дня.</p>
+      </Card>
+      <button onClick={handleSave} style={{background:saved?'linear-gradient(135deg,#166534,#15803d)':'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',padding:'16px',borderRadius:16,fontWeight:800,fontSize:'1.05rem',cursor:'pointer',transition:'background .3s'}}>
+        {saved?'✓ Збережено!':'Зберегти налаштування'}
+      </button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
