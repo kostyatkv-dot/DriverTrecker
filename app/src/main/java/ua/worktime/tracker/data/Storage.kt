@@ -64,10 +64,15 @@ class Storage(ctx: Context) {
                 .put("otPercent", st.overtimePercent)
                 .put("defBreak", st.defaultBreakMin)
                 .put("currency", st.currency)
+                .put("defStart", st.defaultStart.toString())
+                .put("defEnd", st.defaultEnd.toString())
         )
         d.timer?.let { o.put("timer", JSONObject().put("start", it.startMs).put("rate", it.rateId)) }
         return o
     }
+
+    private fun parseTime(s: String, def: LocalTime): LocalTime =
+        try { if (s.isBlank()) def else LocalTime.parse(s) } catch (e: Exception) { def }
 
     private fun parse(o: JSONObject): AppData {
         val rates = mutableListOf<Rate>()
@@ -99,6 +104,8 @@ class Storage(ctx: Context) {
             overtimePercent = so.optDouble("otPercent", def.overtimePercent),
             defaultBreakMin = so.optInt("defBreak", def.defaultBreakMin),
             currency = so.optString("currency", def.currency),
+            defaultStart = parseTime(so.optString("defStart", ""), def.defaultStart),
+            defaultEnd = parseTime(so.optString("defEnd", ""), def.defaultEnd),
         )
         val timer = o.optJSONObject("timer")?.let { ActiveTimer(it.getLong("start"), it.optString("rate", "")) }
         return AppData(rates, shifts, settings, timer)

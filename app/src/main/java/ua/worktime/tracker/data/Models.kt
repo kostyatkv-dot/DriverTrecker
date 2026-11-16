@@ -43,6 +43,9 @@ data class AppSettings(
     /** Перерва за замовчуванням, хвилини. */
     val defaultBreakMin: Int = 0,
     val currency: String = "грн",
+    /** Стандартний початок і кінець робочого дня для нових змін. */
+    val defaultStart: LocalTime = LocalTime.of(8, 0),
+    val defaultEnd: LocalTime = LocalTime.of(17, 0),
 )
 
 /** Запущений таймер зміни. */

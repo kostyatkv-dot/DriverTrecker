@@ -58,6 +58,10 @@ fun SettingsScreen(
     var percent by remember(s) { mutableStateOf(Fmt.plain(s.overtimePercent)) }
     var defBreak by remember(s) { mutableStateOf(s.defaultBreakMin.toString()) }
     var currency by remember(s) { mutableStateOf(s.currency) }
+    var defStart by remember(s) { mutableStateOf(s.defaultStart) }
+    var defEnd by remember(s) { mutableStateOf(s.defaultEnd) }
+    var pickStart by remember { mutableStateOf(false) }
+    var pickEnd by remember { mutableStateOf(false) }
 
     val thrVal = Fmt.parseNum(threshold)
     val pctVal = Fmt.parseNum(percent)
@@ -107,6 +111,27 @@ fun SettingsScreen(
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Робочий день", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Цей час підставляється в кожну нову зміну. Його завжди можна змінити під час запису.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Стандартний початок", style = MaterialTheme.typography.labelMedium)
+                        OutlinedButton(onClick = { pickStart = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text(Fmt.time(defStart), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("Стандартний кінець", style = MaterialTheme.typography.labelMedium)
+                        OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text(Fmt.time(defEnd), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
                 Text("Понаднормові та перерви", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 OutlinedTextField(
                     value = threshold,
@@ -149,6 +174,8 @@ fun SettingsScreen(
                                 overtimePercent = pctVal ?: 25.0,
                                 defaultBreakMin = brkVal ?: 0,
                                 currency = currency.trim(),
+                                defaultStart = defStart,
+                                defaultEnd = defEnd,
                             )
                         )
                     },
@@ -178,6 +205,9 @@ fun SettingsScreen(
             }
         }
     }
+
+    if (pickStart) TimePickDialog("Стандартний початок", defStart, { pickStart = false }) { defStart = it; pickStart = false }
+    if (pickEnd) TimePickDialog("Стандартний кінець", defEnd, { pickEnd = false }) { defEnd = it; pickEnd = false }
 
     editRate?.let { r -> RateDialog(r, s.currency, onDismiss = { editRate = null }) { onSaveRate(it); editRate = null } }
     deleteRate?.let { r ->

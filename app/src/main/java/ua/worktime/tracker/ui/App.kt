@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
 import ua.worktime.tracker.MainViewModel
 import ua.worktime.tracker.data.Shift
 import java.time.LocalDate
-import java.time.LocalTime
 
 enum class Tab(val title: String, val icon: ImageVector) {
     HOME("Головна", Icons.Filled.Home),
@@ -59,8 +58,8 @@ fun App(vm: MainViewModel = viewModel()) {
         editor = EditorState(
             Shift(
                 date = date,
-                start = LocalTime.of(8, 0),
-                end = LocalTime.of(16, 0),
+                start = data.settings.defaultStart,
+                end = data.settings.defaultEnd,
                 breakMin = data.settings.defaultBreakMin,
                 rateId = rateId,
             ),
