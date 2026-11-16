@@ -106,11 +106,22 @@ fun SummaryCard(title: String, sub: String?, s: Summary, settings: AppSettings, 
                 Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(Modifier.padding(top = 8.dp))
-            StatRow("Відпрацьовано", "${Fmt.hm(s.worked)} год")
-            if (s.overtime > 0) StatRow("з них понаднормові", "${Fmt.hm(s.overtime)} год", OvertimeColor)
+            StatRow("Звичайні години", "${Fmt.hm(s.regular)} год")
+            StatRow(
+                "Понаднормові години",
+                "${Fmt.hm(s.overtime)} год",
+                if (s.overtime > 0) OvertimeColor else Color.Unspecified,
+            )
+            StatRow("Всього годин", "${Fmt.hm(s.worked)} год", bold = true)
             if (s.hasPay) {
                 HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                StatRow("Заробіток", Fmt.money(s.pay, settings.currency), MaterialTheme.colorScheme.primary, bold = true)
+                StatRow("Оплата за звичайні", Fmt.money(s.regularPay, settings.currency))
+                StatRow(
+                    "Оплата за понаднормові",
+                    Fmt.money(s.overtimePay, settings.currency),
+                    if (s.overtimePay > 0) OvertimeColor else Color.Unspecified,
+                )
+                StatRow("Всього", Fmt.money(s.pay, settings.currency), MaterialTheme.colorScheme.primary, bold = true)
             }
         }
     }

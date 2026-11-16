@@ -60,7 +60,7 @@ object Export {
         sum += listOf(t("Робочих днів"), n(summary.daysWorked.toDouble()))
         sum += listOf(t("Відпрацьовано, год"), n(summary.worked / 60.0))
         sum += listOf(t("Звичайні години"), n(summary.regular / 60.0))
-        sum += listOf(t("Понаднормові години (понад ${Fmt.hmLong(s.overtimeThresholdMin)}/день)"), n(summary.overtime / 60.0))
+        sum += listOf(t("Понаднормові години (${s.overtimeRule()})"), n(summary.overtime / 60.0))
         sum += emptyList<Xlsx.Cell>()
         sum += listOf(t("Оплата звичайних годин, $cur"), n(summary.regularPay))
         sum += listOf(t("Оплата понаднормових (+$pct%), $cur"), n(summary.overtimePay))

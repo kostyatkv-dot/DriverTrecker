@@ -102,13 +102,18 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
                 Text("Години", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
                 StatRow("Робочих днів", sum.daysWorked.toString())
-                StatRow("Відпрацьовано", "${Fmt.hm(sum.worked)} (${Fmt.num(sum.worked / 60.0)} год)", bold = true)
-                StatRow("Звичайні", "${Fmt.hm(sum.regular)} год")
+                StatRow("Звичайні години", "${Fmt.hm(sum.regular)} год")
                 StatRow(
-                    "Понаднормові (понад ${Fmt.hmLong(s.overtimeThresholdMin)}/день)",
+                    "Понаднормові години",
                     "${Fmt.hm(sum.overtime)} год",
                     if (sum.overtime > 0) OvertimeColor else androidx.compose.ui.graphics.Color.Unspecified,
                 )
+                Text(
+                    "(${s.overtimeRule()})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                StatRow("Всього годин", "${Fmt.hm(sum.worked)} (${Fmt.num(sum.worked / 60.0)} год)", bold = true)
             }
         }
 
@@ -122,8 +127,12 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    StatRow("Звичайні години", Fmt.money(sum.regularPay, s.currency))
-                    StatRow("Понаднормові (+${Fmt.num(s.overtimePercent)}%)", Fmt.money(sum.overtimePay, s.currency))
+                    StatRow("Оплата за звичайні", Fmt.money(sum.regularPay, s.currency))
+                    StatRow(
+                        "Оплата за понаднормові (+${Fmt.plain(s.overtimePercent)}%)",
+                        Fmt.money(sum.overtimePay, s.currency),
+                        if (sum.overtimePay > 0) OvertimeColor else androidx.compose.ui.graphics.Color.Unspecified,
+                    )
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     StatRow("Всього нараховано", Fmt.money(sum.pay, s.currency), MaterialTheme.colorScheme.primary, bold = true)
                     val rates = sum.byRate

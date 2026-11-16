@@ -66,13 +66,16 @@ object Calc {
      * Розрахунок одного дня. Понаднормові — хвилини понад денний поріг.
      * Якщо змін декілька, понаднормовими стають найпізніші хвилини дня
      * і оплачуються за ставкою тієї зміни, на яку вони припали.
+     * У понаднормовий день (субота, якщо увімкнено) всі години — понаднормові.
      */
     fun day(date: LocalDate, shifts: List<Shift>, rates: List<Rate>, s: AppSettings): DayResult {
         var acc = 0
         val factor = 1.0 + s.overtimePercent / 100.0
+        val allOvertime = s.isOvertimeDay(date)
         val results = shifts.sortedBy { it.start }.map { sh ->
             val w = sh.workedMin
-            val reg = if (s.overtimeThresholdMin <= 0) w
+            val reg = if (allOvertime) 0
+            else if (s.overtimeThresholdMin <= 0) w
             else (s.overtimeThresholdMin - acc).coerceIn(0, w)
             val ot = w - reg
             acc += w

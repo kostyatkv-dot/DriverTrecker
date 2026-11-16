@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,6 +61,8 @@ fun SettingsScreen(
     var currency by remember(s) { mutableStateOf(s.currency) }
     var defStart by remember(s) { mutableStateOf(s.defaultStart) }
     var defEnd by remember(s) { mutableStateOf(s.defaultEnd) }
+    var satOt by remember(s) { mutableStateOf(s.saturdayOvertime) }
+    var sunOt by remember(s) { mutableStateOf(s.sundayOvertime) }
     var pickStart by remember { mutableStateOf(false) }
     var pickEnd by remember { mutableStateOf(false) }
 
@@ -150,6 +153,8 @@ fun SettingsScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                SwitchRow("Субота — усі години понаднормові", satOt) { satOt = it }
+                SwitchRow("Неділя — усі години понаднормові", sunOt) { sunOt = it }
                 OutlinedTextField(
                     value = defBreak,
                     onValueChange = { v -> defBreak = v.filter { it.isDigit() }.take(4) },
@@ -176,6 +181,8 @@ fun SettingsScreen(
                                 currency = currency.trim(),
                                 defaultStart = defStart,
                                 defaultEnd = defEnd,
+                                saturdayOvertime = satOt,
+                                sundayOvertime = sunOt,
                             )
                         )
                     },
@@ -190,7 +197,10 @@ fun SettingsScreen(
                 Text("Як рахується", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
                     "• Години понад ${Fmt.hmLong(s.overtimeThresholdMin)} за день — понаднормові, " +
-                        "оплачуються за ставкою зміни з надбавкою ${Fmt.num(s.overtimePercent)}%.\n" +
+                        "оплачуються за ставкою зміни з надбавкою ${Fmt.plain(s.overtimePercent)}%.\n" +
+                        (if (s.saturdayOvertime || s.sundayOvertime)
+                            "• Уся робота у ${listOfNotNull(if (s.saturdayOvertime) "суботу" else null, if (s.sundayOvertime) "неділю" else null).joinToString(" і ")} — понаднормова.\n"
+                        else "") +
                         "• Якщо змін за день декілька, понаднормовими стають останні години дня.\n" +
                         "• Зміна, що переходить через північ, рахується за датою початку.\n" +
                         "• Сума показується брутто (до утримання податків).",
@@ -221,6 +231,14 @@ fun SettingsScreen(
             },
             dismissButton = { TextButton(onClick = { deleteRate = null }) { Text("Ні") } },
         )
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 
