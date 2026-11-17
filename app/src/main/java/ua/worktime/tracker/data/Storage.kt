@@ -68,6 +68,7 @@ class Storage(ctx: Context) {
                 .put("defEnd", st.defaultEnd.toString())
                 .put("satOt", st.saturdayOvertime)
                 .put("sunOt", st.sundayOvertime)
+                .put("lang", st.language)
         )
         d.timer?.let { o.put("timer", JSONObject().put("start", it.startMs).put("rate", it.rateId)) }
         return o
@@ -110,6 +111,7 @@ class Storage(ctx: Context) {
             defaultEnd = parseTime(so.optString("defEnd", ""), def.defaultEnd),
             saturdayOvertime = so.optBoolean("satOt", def.saturdayOvertime),
             sundayOvertime = so.optBoolean("sunOt", def.sundayOvertime),
+            language = so.optString("lang", def.language),
         )
         val timer = o.optJSONObject("timer")?.let { ActiveTimer(it.getLong("start"), it.optString("rate", "")) }
         return AppData(rates, shifts, settings, timer)

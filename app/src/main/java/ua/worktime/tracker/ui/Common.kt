@@ -34,6 +34,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ua.worktime.tracker.data.AppSettings
 import ua.worktime.tracker.data.Fmt
+import ua.worktime.tracker.data.Str
+import ua.worktime.tracker.data.Uk
 import ua.worktime.tracker.data.Rate
 import ua.worktime.tracker.data.Summary
 import java.time.Instant
@@ -67,6 +70,9 @@ fun WorkTimeTheme(content: @Composable () -> Unit) {
 }
 
 val OvertimeColor = Color(0xFFE65100)
+
+/** Поточна мова інтерфейсу. */
+val LocalStr = staticCompositionLocalOf<Str> { Uk }
 
 @Composable
 fun ScreenTitle(text: String, sub: String? = null) {
@@ -96,9 +102,17 @@ fun StatRow(label: String, value: String, valueColor: Color = Color.Unspecified,
     }
 }
 
-/** Картка з підсумком: години, понаднормові, заробіток. */
+/** Картка з підсумком: години (і, якщо showPay, оплата). */
 @Composable
-fun SummaryCard(title: String, sub: String?, s: Summary, settings: AppSettings, modifier: Modifier = Modifier) {
+fun SummaryCard(
+    title: String,
+    sub: String?,
+    s: Summary,
+    settings: AppSettings,
+    modifier: Modifier = Modifier,
+    showPay: Boolean = false,
+) {
+    val L = LocalStr.current
     Card(modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -106,22 +120,22 @@ fun SummaryCard(title: String, sub: String?, s: Summary, settings: AppSettings, 
                 Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(Modifier.padding(top = 8.dp))
-            StatRow("Звичайні години", "${Fmt.hm(s.regular)} год")
+            StatRow(L.regularHours, L.hours(s.regular))
             StatRow(
-                "Понаднормові години",
-                "${Fmt.hm(s.overtime)} год",
+                L.overtimeHours,
+                L.hours(s.overtime),
                 if (s.overtime > 0) OvertimeColor else Color.Unspecified,
             )
-            StatRow("Всього годин", "${Fmt.hm(s.worked)} год", bold = true)
-            if (s.hasPay) {
+            StatRow(L.totalHours, L.hours(s.worked), bold = true)
+            if (showPay && s.hasPay) {
                 HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                StatRow("Оплата за звичайні", Fmt.money(s.regularPay, settings.currency))
+                StatRow(L.payRegular, L.money(s.regularPay, settings.currency))
                 StatRow(
-                    "Оплата за понаднормові",
-                    Fmt.money(s.overtimePay, settings.currency),
+                    L.payOvertime,
+                    L.money(s.overtimePay, settings.currency),
                     if (s.overtimePay > 0) OvertimeColor else Color.Unspecified,
                 )
-                StatRow("Всього", Fmt.money(s.pay, settings.currency), MaterialTheme.colorScheme.primary, bold = true)
+                StatRow(L.total, L.money(s.pay, settings.currency), MaterialTheme.colorScheme.primary, bold = true)
             }
         }
     }
@@ -131,27 +145,26 @@ fun SummaryCard(title: String, sub: String?, s: Summary, settings: AppSettings, 
 @Composable
 fun PeriodSwitcher(title: String, sub: String?, onPrev: () -> Unit, onNext: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Попередній") }
+        val L = LocalStr.current
+        IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, L.prev) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (sub != null) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Наступний") }
+        IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, L.next) }
     }
 }
 
-fun rateLabel(r: Rate, cur: String): String =
-    if (r.hourly > 0) "${r.name} · ${Fmt.num(r.hourly)} $cur/год" else r.name
-
-/** Вибір ставки з випадного списку. */
+/** Вибір ставки з випадного списку (лише назви, без сум). */
 @Composable
-fun RatePicker(rates: List<Rate>, selectedId: String, currency: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun RatePicker(rates: List<Rate>, selectedId: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    val L = LocalStr.current
     var open by remember { mutableStateOf(false) }
     val sel = rates.firstOrNull { it.id == selectedId }
     Box(modifier) {
         OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
             Text(
-                sel?.let { rateLabel(it, currency) } ?: if (rates.isEmpty()) "Немає ставок" else "Оберіть ставку",
+                sel?.name ?: if (rates.isEmpty()) L.noRates else L.chooseRate,
                 modifier = Modifier.weight(1f),
             )
             Icon(Icons.Filled.ArrowDropDown, null)
@@ -159,7 +172,7 @@ fun RatePicker(rates: List<Rate>, selectedId: String, currency: String, onSelect
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             rates.forEach { r ->
                 DropdownMenuItem(
-                    text = { Text(rateLabel(r, currency)) },
+                    text = { Text(r.name) },
                     onClick = { onSelect(r.id); open = false },
                 )
             }
@@ -170,19 +183,21 @@ fun RatePicker(rates: List<Rate>, selectedId: String, currency: String, onSelect
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickDialog(title: String, initial: LocalTime, onDismiss: () -> Unit, onPick: (LocalTime) -> Unit) {
+    val L = LocalStr.current
     val st = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = true)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { TimePicker(state = st) },
-        confirmButton = { TextButton(onClick = { onPick(LocalTime.of(st.hour, st.minute)) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } },
+        confirmButton = { TextButton(onClick = { onPick(LocalTime.of(st.hour, st.minute)) }) { Text(L.ok) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(L.cancel) } },
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    val L = LocalStr.current
     val st = rememberDatePickerState(
         initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
     )
@@ -192,9 +207,9 @@ fun DatePickDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate
             TextButton(onClick = {
                 val ms = st.selectedDateMillis
                 if (ms != null) onPick(Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()) else onDismiss()
-            }) { Text("OK") }
+            }) { Text(L.ok) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(L.cancel) } },
     ) {
         DatePicker(state = st)
     }

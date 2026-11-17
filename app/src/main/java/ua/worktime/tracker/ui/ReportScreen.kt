@@ -53,22 +53,24 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
     val to = if (monthly) Calc.monthEnd(anchor) else Calc.weekEnd(anchor)
     val sum = Calc.range(data, from, to)
     val s = data.settings
-    val title = if (monthly) Fmt.month(from) else "Тиждень ${Fmt.period(from, to)}"
-    val fileTitle = if (monthly) "%04d-%02d".format(from.year, from.monthValue) else "тиждень_${from}"
+    val L = LocalStr.current
+    val title = if (monthly) L.month(from) else "${L.week} ${Fmt.period(from, to)}"
+    val fileTitle = if (monthly) "%04d-%02d".format(from.year, from.monthValue) else "${L.week}_${from}"
 
     val ctx = LocalContext.current
     val currentSum by rememberUpdatedState(sum)
     val currentTitle by rememberUpdatedState(title)
     val currentSettings by rememberUpdatedState(s)
+    val currentL by rememberUpdatedState(L)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(XLSX_MIME)) { uri ->
         if (uri != null) {
             try {
                 ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                    Export.write(out, currentSum, currentTitle, currentSettings)
+                    Export.write(out, currentSum, currentTitle, currentSettings, currentL)
                 }
-                toast("Файл Excel збережено")
+                toast(currentL.excelSaved)
             } catch (e: Exception) {
-                toast("Помилка збереження: ${e.message}")
+                toast("${currentL.saveError}: ${e.message}")
             }
         }
     }
@@ -77,21 +79,21 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle("Звіт")
+        ScreenTitle(L.report)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             SegmentedButton(
                 selected = !monthly,
                 onClick = { monthly = false },
                 shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text("Тиждень") }
+            ) { Text(L.week) }
             SegmentedButton(
                 selected = monthly,
                 onClick = { monthly = true },
                 shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text("Місяць") }
+            ) { Text(L.monthLbl) }
         }
         PeriodSwitcher(
-            if (monthly) Fmt.month(from) else "Тиждень",
+            if (monthly) L.month(from) else L.week,
             Fmt.period(from, to),
             onPrev = { anchor = if (monthly) anchor.minusMonths(1) else anchor.minusWeeks(1) },
             onNext = { anchor = if (monthly) anchor.plusMonths(1) else anchor.plusWeeks(1) },
@@ -99,50 +101,50 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text("Години", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.hoursTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                StatRow("Робочих днів", sum.daysWorked.toString())
-                StatRow("Звичайні години", "${Fmt.hm(sum.regular)} год")
+                StatRow(L.workDays, sum.daysWorked.toString())
+                StatRow(L.regularHours, L.hours(sum.regular))
                 StatRow(
-                    "Понаднормові години",
-                    "${Fmt.hm(sum.overtime)} год",
+                    L.overtimeHours,
+                    L.hours(sum.overtime),
                     if (sum.overtime > 0) OvertimeColor else androidx.compose.ui.graphics.Color.Unspecified,
                 )
                 Text(
-                    "(${s.overtimeRule()})",
+                    "(${L.overtimeRule(s)})",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                StatRow("Всього годин", "${Fmt.hm(sum.worked)} (${Fmt.num(sum.worked / 60.0)} год)", bold = true)
+                StatRow(L.totalHours, "${Fmt.hm(sum.worked)} (${L.num(sum.worked / 60.0)} ${L.h})", bold = true)
             }
         }
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text("Заробітна плата (брутто)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.salary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
                 if (!sum.hasPay) {
                     Text(
-                        "Вкажіть тариф (грн/год) у «Налаштуваннях», щоб бачити розрахунок зарплати.",
+                        L.setRateHint,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    StatRow("Оплата за звичайні", Fmt.money(sum.regularPay, s.currency))
+                    StatRow(L.payRegular, L.money(sum.regularPay, s.currency))
                     StatRow(
-                        "Оплата за понаднормові (+${Fmt.plain(s.overtimePercent)}%)",
-                        Fmt.money(sum.overtimePay, s.currency),
+                        "${L.payOvertime} (+${Fmt.plain(s.overtimePercent)}%)",
+                        L.money(sum.overtimePay, s.currency),
                         if (sum.overtimePay > 0) OvertimeColor else androidx.compose.ui.graphics.Color.Unspecified,
                     )
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    StatRow("Всього нараховано", Fmt.money(sum.pay, s.currency), MaterialTheme.colorScheme.primary, bold = true)
+                    StatRow(L.total, L.money(sum.pay, s.currency), MaterialTheme.colorScheme.primary, bold = true)
                     val rates = sum.byRate
                     if (rates.size > 1) {
                         Spacer(Modifier.height(10.dp))
-                        Text("За ставками", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(L.byRates, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         rates.forEach { r ->
                             StatRow(
-                                "${r.name} (${Fmt.hm(r.regular + r.overtime)} год)",
-                                Fmt.money(r.pay, s.currency),
+                                "${r.name} (${L.hours(r.regular + r.overtime)})",
+                                L.money(r.pay, s.currency),
                             )
                         }
                     }
@@ -153,12 +155,12 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
         if (sum.days.isNotEmpty()) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("По днях", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(L.byDays, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
                     sum.days.forEach { d ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(Fmt.dayTitle(d.date), Modifier.weight(1f))
-                            Text("${Fmt.hm(d.worked)} год", fontWeight = FontWeight.Medium)
+                            Text(L.dayTitle(d.date), Modifier.weight(1f))
+                            Text(L.hours(d.worked), fontWeight = FontWeight.Medium)
                             if (d.overtime > 0) {
                                 Text("  +${Fmt.hm(d.overtime)}", color = OvertimeColor, style = MaterialTheme.typography.bodySmall)
                             }
@@ -169,13 +171,13 @@ fun ReportScreen(data: AppData, toast: (String) -> Unit) {
         }
 
         Button(
-            onClick = { launcher.launch(Export.fileName(fileTitle)) },
+            onClick = { launcher.launch(Export.fileName(L, fileTitle)) },
             enabled = sum.days.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             Icon(Icons.Filled.Share, null)
             Spacer(Modifier.width(8.dp))
-            Text("Експорт в Excel")
+            Text(L.exportExcel)
         }
         Spacer(Modifier.height(8.dp))
     }

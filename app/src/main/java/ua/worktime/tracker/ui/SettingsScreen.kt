@@ -19,11 +19,15 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,15 +47,19 @@ import ua.worktime.tracker.data.AppData
 import ua.worktime.tracker.data.AppSettings
 import ua.worktime.tracker.data.Fmt
 import ua.worktime.tracker.data.Rate
+import ua.worktime.tracker.data.Str
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     data: AppData,
     onSaveRate: (Rate) -> Unit,
     onDeleteRate: (String) -> Unit,
     onSaveSettings: (AppSettings) -> Unit,
+    onLanguage: (String) -> Unit,
 ) {
+    val L = LocalStr.current
     val s = data.settings
     var editRate by remember { mutableStateOf<Rate?>(null) }
     var deleteRate by remember { mutableStateOf<Rate?>(null) }
@@ -76,13 +85,32 @@ fun SettingsScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle("Налаштування")
+        ScreenTitle(L.settings)
 
+        // Мова
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text("Ставки (тарифи за годину)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.language, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                val langs = Str.all
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    langs.forEachIndexed { i, lang ->
+                        SegmentedButton(
+                            selected = s.language == lang.code,
+                            onClick = { onLanguage(lang.code) },
+                            shape = SegmentedButtonDefaults.itemShape(i, langs.size),
+                        ) { Text(lang.title) }
+                    }
+                }
+            }
+        }
+
+        // Ставки
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text(L.rates, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Наприклад: основна, нічна, вихідний день. Ставку обираєте для кожної зміни.",
+                    L.ratesHint,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -92,13 +120,13 @@ fun SettingsScreen(
                         Column(Modifier.weight(1f)) {
                             Text(r.name, style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                if (r.hourly > 0) "${Fmt.num(r.hourly)} ${s.currency}/год" else "тариф не вказано",
+                                if (r.hourly > 0) "${L.num(r.hourly)} ${s.currency}/${L.perHour}" else L.rateNotSet,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (r.hourly > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             )
                         }
-                        IconButton(onClick = { editRate = r }) { Icon(Icons.Filled.Edit, "Змінити") }
-                        IconButton(onClick = { deleteRate = r }) { Icon(Icons.Filled.Delete, "Видалити") }
+                        IconButton(onClick = { editRate = r }) { Icon(Icons.Filled.Edit, L.edit) }
+                        IconButton(onClick = { deleteRate = r }) { Icon(Icons.Filled.Delete, L.delete) }
                     }
                 }
                 OutlinedButton(
@@ -107,40 +135,41 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Filled.Add, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Додати ставку")
+                    Text(L.addRate)
                 }
             }
         }
 
+        // Робочий день, понаднормові, перерви
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Робочий день", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.workday, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Цей час підставляється в кожну нову зміну. Його завжди можна змінити під час запису.",
+                    L.workdayHint,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("Стандартний початок", style = MaterialTheme.typography.labelMedium)
+                        Text(L.defStart, style = MaterialTheme.typography.labelMedium)
                         OutlinedButton(onClick = { pickStart = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(Fmt.time(defStart), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     Column(Modifier.weight(1f)) {
-                        Text("Стандартний кінець", style = MaterialTheme.typography.labelMedium)
+                        Text(L.defEnd, style = MaterialTheme.typography.labelMedium)
                         OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(Fmt.time(defEnd), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                Text("Понаднормові та перерви", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.overtimeAndBreaks, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 OutlinedTextField(
                     value = threshold,
                     onValueChange = { threshold = it },
-                    label = { Text("Понаднормові після, год на день") },
-                    supportingText = { Text("0 — не рахувати понаднормові") },
+                    label = { Text(L.otAfter) },
+                    supportingText = { Text(L.otAfterHint) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -148,18 +177,18 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = percent,
                     onValueChange = { percent = it },
-                    label = { Text("Надбавка за понаднормові, %") },
+                    label = { Text(L.otPercent) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SwitchRow("Субота — усі години понаднормові", satOt) { satOt = it }
-                SwitchRow("Неділя — усі години понаднормові", sunOt) { sunOt = it }
+                SwitchRow(L.satOt, satOt) { satOt = it }
+                SwitchRow(L.sunOt, sunOt) { sunOt = it }
                 OutlinedTextField(
                     value = defBreak,
                     onValueChange = { v -> defBreak = v.filter { it.isDigit() }.take(4) },
-                    label = { Text("Перерва за замовчуванням, хв") },
-                    supportingText = { Text("Віднімається від кожної зміни (можна змінити в зміні)") },
+                    label = { Text(L.defBreak) },
+                    supportingText = { Text(L.defBreakHint) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -167,14 +196,14 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = currency,
                     onValueChange = { currency = it.take(6) },
-                    label = { Text("Валюта") },
+                    label = { Text(L.currency) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Button(
                     onClick = {
                         onSaveSettings(
-                            AppSettings(
+                            s.copy(
                                 overtimeThresholdMin = ((thrVal ?: 7.0) * 60).roundToInt(),
                                 overtimePercent = pctVal ?: 25.0,
                                 defaultBreakMin = brkVal ?: 0,
@@ -188,27 +217,18 @@ fun SettingsScreen(
                     },
                     enabled = valid,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Зберегти") }
+                ) { Text(L.save) }
             }
         }
 
+        // Пояснення
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text("Як рахується", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "• Години понад ${Fmt.hmLong(s.overtimeThresholdMin)} за день — понаднормові, " +
-                        "оплачуються за ставкою зміни з надбавкою ${Fmt.plain(s.overtimePercent)}%.\n" +
-                        (if (s.saturdayOvertime || s.sundayOvertime)
-                            "• Уся робота у ${listOfNotNull(if (s.saturdayOvertime) "суботу" else null, if (s.sundayOvertime) "неділю" else null).joinToString(" і ")} — понаднормова.\n"
-                        else "") +
-                        "• Якщо змін за день декілька, понаднормовими стають останні години дня.\n" +
-                        "• Зміна, що переходить через північ, рахується за датою початку.\n" +
-                        "• Сума показується брутто (до утримання податків).",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(L.howCalc, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(L.howText(s), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Версія ${BuildConfigInfo.versionName(androidx.compose.ui.platform.LocalContext.current)}",
+                    "${L.version} ${BuildConfigInfo.versionName(LocalContext.current)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -216,20 +236,20 @@ fun SettingsScreen(
         }
     }
 
-    if (pickStart) TimePickDialog("Стандартний початок", defStart, { pickStart = false }) { defStart = it; pickStart = false }
-    if (pickEnd) TimePickDialog("Стандартний кінець", defEnd, { pickEnd = false }) { defEnd = it; pickEnd = false }
+    if (pickStart) TimePickDialog(L.defStart, defStart, { pickStart = false }) { defStart = it; pickStart = false }
+    if (pickEnd) TimePickDialog(L.defEnd, defEnd, { pickEnd = false }) { defEnd = it; pickEnd = false }
 
     editRate?.let { r -> RateDialog(r, s.currency, onDismiss = { editRate = null }) { onSaveRate(it); editRate = null } }
     deleteRate?.let { r ->
         AlertDialog(
             onDismissRequest = { deleteRate = null },
-            title = { Text("Видалити ставку «${r.name}»?") },
+            title = { Text(L.deleteRateQ(r.name)) },
             confirmButton = {
                 TextButton(onClick = { onDeleteRate(r.id); deleteRate = null }) {
-                    Text("Видалити", color = MaterialTheme.colorScheme.error)
+                    Text(L.delete, color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { deleteRate = null }) { Text("Ні") } },
+            dismissButton = { TextButton(onClick = { deleteRate = null }) { Text(L.no) } },
         )
     }
 }
@@ -244,28 +264,27 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 
 @Composable
 private fun RateDialog(initial: Rate, currency: String, onDismiss: () -> Unit, onSave: (Rate) -> Unit) {
+    val L = LocalStr.current
     var name by remember { mutableStateOf(initial.name) }
-    var hourly by remember {
-        mutableStateOf(if (initial.hourly > 0) Fmt.plain(initial.hourly) else "")
-    }
+    var hourly by remember { mutableStateOf(if (initial.hourly > 0) Fmt.plain(initial.hourly) else "") }
     val h = Fmt.parseNum(hourly)
     val valid = name.isNotBlank() && h != null && h >= 0
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial.name.isEmpty()) "Нова ставка" else "Ставка") },
+        title = { Text(if (initial.name.isEmpty()) L.newRate else L.rate) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Назва (напр. Основна, Нічна)") },
+                    label = { Text(L.rateName) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = hourly,
                     onValueChange = { hourly = it },
-                    label = { Text("Тариф, $currency за годину") },
+                    label = { Text(L.rateHourly(currency)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -274,9 +293,9 @@ private fun RateDialog(initial: Rate, currency: String, onDismiss: () -> Unit, o
         },
         confirmButton = {
             TextButton(onClick = { onSave(initial.copy(name = name.trim(), hourly = h ?: 0.0)) }, enabled = valid) {
-                Text("Зберегти")
+                Text(L.save)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(L.cancel) } },
     )
 }

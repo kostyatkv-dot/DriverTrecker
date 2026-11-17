@@ -7,26 +7,27 @@ import ua.worktime.tracker.data.Xlsx.t
 import java.io.OutputStream
 
 object Export {
-    fun fileName(title: String): String = "Робочий_час_${title.replace(' ', '_')}.xlsx"
+    fun fileName(L: Str, title: String): String = "${L.fileBase}_${title.replace(' ', '_')}.xlsx"
 
-    fun write(out: OutputStream, summary: Summary, periodTitle: String, s: AppSettings) {
+    fun write(out: OutputStream, summary: Summary, periodTitle: String, s: AppSettings, L: Str) {
         val cur = s.currency
         val pct = Fmt.plain(s.overtimePercent)
+        val e = Xlsx.Cell.Empty
 
-        // Аркуш 1: всі зміни
+        // Аркуш: всі зміни
         val rows = mutableListOf<List<Xlsx.Cell>>()
-        rows += listOf(b("Робочий час: $periodTitle (${Fmt.period(summary.from, summary.to)})"))
+        rows += listOf(b("${L.xTitle}: $periodTitle (${Fmt.period(summary.from, summary.to)})"))
         rows += emptyList<Xlsx.Cell>()
         rows += listOf(
-            b("Дата"), b("День"), b("Початок"), b("Кінець"), b("Перерва, хв"),
-            b("Відпрацьовано, год"), b("Звичайні, год"), b("Понаднормові, год"),
-            b("Ставка"), b("Тариф, $cur/год"), b("Сума, $cur"), b("Примітка"),
+            b(L.date), b(L.xDay), b(L.start), b(L.end), b(L.xBreak),
+            b(L.xWorked), b(L.xRegular), b(L.xOvertime),
+            b(L.rate), b(L.xTariff(cur)), b(L.xSum(cur)), b(L.note),
         )
         for (d in summary.days) {
             for (r in d.shifts) {
                 rows += listOf(
                     t(Fmt.date(d.date)),
-                    t(Fmt.DOW_SHORT[d.date.dayOfWeek.value - 1]),
+                    t(L.dowShort[d.date.dayOfWeek.value - 1]),
                     t(Fmt.time(r.shift.start)),
                     t(Fmt.time(r.shift.end)),
                     n(r.shift.breakMin.toDouble()),
@@ -42,34 +43,34 @@ object Export {
         }
         rows += emptyList<Xlsx.Cell>()
         rows += listOf(
-            b("РАЗОМ"), Xlsx.Cell.Empty, Xlsx.Cell.Empty, Xlsx.Cell.Empty, Xlsx.Cell.Empty,
+            b(L.xTotalRow), e, e, e, e,
             nb(summary.worked / 60.0), nb(summary.regular / 60.0), nb(summary.overtime / 60.0),
-            Xlsx.Cell.Empty, Xlsx.Cell.Empty, nb(summary.pay),
+            e, e, nb(summary.pay),
         )
         val shifts = Xlsx.Sheet(
-            "Зміни",
+            L.xShifts,
             listOf(12.0, 6.0, 9.0, 9.0, 11.0, 18.0, 14.0, 18.0, 16.0, 15.0, 14.0, 24.0),
             rows,
         )
 
-        // Аркуш 2: підсумок
+        // Аркуш: підсумок
         val sum = mutableListOf<List<Xlsx.Cell>>()
-        sum += listOf(b("Підсумок: $periodTitle"))
-        sum += listOf(t("Період"), t(Fmt.period(summary.from, summary.to)))
+        sum += listOf(b("${L.xSummary}: $periodTitle"))
+        sum += listOf(t(L.xPeriod), t(Fmt.period(summary.from, summary.to)))
         sum += emptyList<Xlsx.Cell>()
-        sum += listOf(t("Робочих днів"), n(summary.daysWorked.toDouble()))
-        sum += listOf(t("Відпрацьовано, год"), n(summary.worked / 60.0))
-        sum += listOf(t("Звичайні години"), n(summary.regular / 60.0))
-        sum += listOf(t("Понаднормові години (${s.overtimeRule()})"), n(summary.overtime / 60.0))
+        sum += listOf(t(L.workDays), n(summary.daysWorked.toDouble()))
+        sum += listOf(t("${L.regularHours}, ${L.h}"), n(summary.regular / 60.0))
+        sum += listOf(t("${L.overtimeHours}, ${L.h} (${L.overtimeRule(s)})"), n(summary.overtime / 60.0))
+        sum += listOf(b("${L.totalHours}, ${L.h}"), nb(summary.worked / 60.0))
         sum += emptyList<Xlsx.Cell>()
-        sum += listOf(t("Оплата звичайних годин, $cur"), n(summary.regularPay))
-        sum += listOf(t("Оплата понаднормових (+$pct%), $cur"), n(summary.overtimePay))
-        sum += listOf(b("ВСЬОГО НАРАХОВАНО (брутто), $cur"), nb(summary.pay))
+        sum += listOf(t(L.xPayRegular(cur)), n(summary.regularPay))
+        sum += listOf(t(L.xPayOvertime(pct, cur)), n(summary.overtimePay))
+        sum += listOf(b(L.xPayTotal(cur)), nb(summary.pay))
         sum += emptyList<Xlsx.Cell>()
-        sum += listOf(b("За ставками"))
+        sum += listOf(b(L.byRates))
         sum += listOf(
-            b("Ставка"), b("Тариф, $cur/год"), b("Звичайні, год"), b("Понаднормові, год"),
-            b("Звичайні, $cur"), b("Понаднормові, $cur"), b("Разом, $cur"),
+            b(L.rate), b(L.xTariff(cur)), b(L.xRegular), b(L.xOvertime),
+            b(L.xRegularMoney(cur)), b(L.xOvertimeMoney(cur)), b(L.xTotalMoney(cur)),
         )
         for (r in summary.byRate) {
             sum += listOf(
@@ -77,7 +78,7 @@ object Export {
                 n(r.regularPay), n(r.overtimePay), n(r.pay),
             )
         }
-        val total = Xlsx.Sheet("Підсумок", listOf(44.0, 16.0, 14.0, 18.0, 14.0, 18.0, 14.0), sum)
+        val total = Xlsx.Sheet(L.xSummary, listOf(48.0, 16.0, 14.0, 18.0, 14.0, 18.0, 14.0), sum)
 
         Xlsx.write(out, listOf(total, shifts))
     }

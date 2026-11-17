@@ -38,7 +38,7 @@ import java.time.LocalDate
 fun JournalScreen(data: AppData, onAdd: (LocalDate) -> Unit, onEdit: (Shift) -> Unit) {
     var month by rememberSaveable { mutableStateOf(Calc.monthStart(LocalDate.now())) }
     val sum = Calc.range(data, Calc.monthStart(month), Calc.monthEnd(month))
-    val s = data.settings
+    val L = LocalStr.current
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -47,11 +47,10 @@ fun JournalScreen(data: AppData, onAdd: (LocalDate) -> Unit, onEdit: (Shift) -> 
         ) {
             item {
                 PeriodSwitcher(
-                    Fmt.month(month),
+                    L.month(month),
                     buildString {
-                        append("${Fmt.hm(sum.worked)} год · днів: ${sum.daysWorked}")
-                        if (sum.overtime > 0) append(" · понаднорм. ${Fmt.hm(sum.overtime)}")
-                        if (sum.hasPay) append(" · ${Fmt.money(sum.pay, s.currency)}")
+                        append("${L.hours(sum.worked)} · ${L.days}: ${sum.daysWorked}")
+                        if (sum.overtime > 0) append(" · ${L.overtimeShort} ${Fmt.hm(sum.overtime)}")
                     },
                     onPrev = { month = month.minusMonths(1) },
                     onNext = { month = month.plusMonths(1) },
@@ -60,7 +59,7 @@ fun JournalScreen(data: AppData, onAdd: (LocalDate) -> Unit, onEdit: (Shift) -> 
             if (sum.days.isEmpty()) {
                 item {
                     Text(
-                        "За цей місяць записів немає.\nНатисніть «+», щоб додати зміну.",
+                        L.noEntries,
                         modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -75,23 +74,20 @@ fun JournalScreen(data: AppData, onAdd: (LocalDate) -> Unit, onEdit: (Shift) -> 
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                Fmt.dayTitle(day.date),
+                                L.dayTitle(day.date),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f),
                             )
                             Text(
-                                buildString {
-                                    append("${Fmt.hm(day.worked)} год")
-                                    if (day.pay > 0) append(" · ${Fmt.money(day.pay, s.currency)}")
-                                },
+                                L.hours(day.worked),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                             )
                         }
                         day.shifts.forEachIndexed { i, r ->
                             if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            ShiftRow(r, data, onClick = { onEdit(r.shift) })
+                            ShiftRow(r, onClick = { onEdit(r.shift) })
                         }
                     }
                 }
@@ -104,7 +100,7 @@ fun JournalScreen(data: AppData, onAdd: (LocalDate) -> Unit, onEdit: (Shift) -> 
             },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
         ) {
-            Icon(Icons.Filled.Add, "Додати зміну")
+            Icon(Icons.Filled.Add, L.addShift)
         }
     }
 }

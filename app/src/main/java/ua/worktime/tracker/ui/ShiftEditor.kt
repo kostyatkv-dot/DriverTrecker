@@ -35,6 +35,7 @@ fun ShiftEditorDialog(
     onSave: (Shift) -> Unit,
     onDelete: (Shift) -> Unit,
 ) {
+    val L = LocalStr.current
     var date by remember { mutableStateOf(initial.date) }
     var start by remember { mutableStateOf(initial.start) }
     var end by remember { mutableStateOf(initial.end) }
@@ -56,25 +57,25 @@ fun ShiftEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isNew) "Нова зміна" else "Редагування зміни") },
+        title = { Text(if (isNew) L.newShift else L.editShift) },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("Дата", style = MaterialTheme.typography.labelMedium)
+                Text(L.date, style = MaterialTheme.typography.labelMedium)
                 OutlinedButton(onClick = { pickDate = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(Fmt.dayTitle(date) + " " + date.year)
+                    Text(L.dayTitle(date) + " " + date.year)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("Початок", style = MaterialTheme.typography.labelMedium)
+                        Text(L.start, style = MaterialTheme.typography.labelMedium)
                         OutlinedButton(onClick = { pickStart = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(Fmt.time(start), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     Column(Modifier.weight(1f)) {
-                        Text("Кінець", style = MaterialTheme.typography.labelMedium)
+                        Text(L.end, style = MaterialTheme.typography.labelMedium)
                         OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(Fmt.time(end), style = MaterialTheme.typography.titleMedium)
                         }
@@ -82,7 +83,7 @@ fun ShiftEditorDialog(
                 }
                 if (end < start) {
                     Text(
-                        "Зміна закінчується наступного дня",
+                        L.nextDay,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -90,54 +91,54 @@ fun ShiftEditorDialog(
                 OutlinedTextField(
                     value = breakText,
                     onValueChange = { v -> breakText = v.filter { it.isDigit() }.take(4) },
-                    label = { Text("Перерва, хв") },
+                    label = { Text(L.breakMin) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (data.rates.isNotEmpty()) {
-                    Text("Ставка", style = MaterialTheme.typography.labelMedium)
-                    RatePicker(data.rates, rateId, data.settings.currency, { rateId = it }, Modifier.fillMaxWidth())
+                    Text(L.rate, style = MaterialTheme.typography.labelMedium)
+                    RatePicker(data.rates, rateId, { rateId = it }, Modifier.fillMaxWidth())
                 }
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Примітка") },
+                    label = { Text(L.note) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Відпрацьовано: ${Fmt.hmLong(draft.workedMin)}",
+                    "${L.worked}: ${L.hmLong(draft.workedMin)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (valid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
                 if (!isNew) {
                     TextButton(onClick = { confirmDelete = true }) {
-                        Text("Видалити зміну", color = MaterialTheme.colorScheme.error)
+                        Text(L.deleteShift, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(draft) }, enabled = valid) { Text("Зберегти") }
+            TextButton(onClick = { onSave(draft) }, enabled = valid) { Text(L.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(L.cancel) } },
     )
 
     if (pickDate) DatePickDialog(date, { pickDate = false }) { date = it; pickDate = false }
-    if (pickStart) TimePickDialog("Початок зміни", start, { pickStart = false }) { start = it; pickStart = false }
-    if (pickEnd) TimePickDialog("Кінець зміни", end, { pickEnd = false }) { end = it; pickEnd = false }
+    if (pickStart) TimePickDialog(L.shiftStart, start, { pickStart = false }) { start = it; pickStart = false }
+    if (pickEnd) TimePickDialog(L.shiftEnd, end, { pickEnd = false }) { end = it; pickEnd = false }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Видалити зміну?") },
-            text = { Text("${Fmt.dayTitle(initial.date)}, ${Fmt.time(initial.start)} – ${Fmt.time(initial.end)}") },
+            title = { Text(L.deleteShiftQ) },
+            text = { Text("${L.dayTitle(initial.date)}, ${Fmt.time(initial.start)} – ${Fmt.time(initial.end)}") },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; onDelete(initial) }) {
-                    Text("Видалити", color = MaterialTheme.colorScheme.error)
+                    Text(L.delete, color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Ні") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(L.no) } },
         )
     }
 }

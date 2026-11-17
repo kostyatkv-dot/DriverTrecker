@@ -49,21 +49,13 @@ data class AppSettings(
     /** Уся робота в суботу / неділю — понаднормова. */
     val saturdayOvertime: Boolean = true,
     val sundayOvertime: Boolean = false,
+    /** Мова інтерфейсу: "uk" або "de". */
+    val language: String = "uk",
 ) {
     fun isOvertimeDay(d: java.time.LocalDate): Boolean = when (d.dayOfWeek) {
         java.time.DayOfWeek.SATURDAY -> saturdayOvertime
         java.time.DayOfWeek.SUNDAY -> sundayOvertime
         else -> false
-    }
-
-    /** Короткий опис правила понаднормових для підписів. */
-    fun overtimeRule(): String {
-        val parts = mutableListOf<String>()
-        if (overtimeThresholdMin > 0) parts += "понад ${Fmt.hmLong(overtimeThresholdMin)}/день"
-        if (saturdayOvertime && sundayOvertime) parts += "сб і нд"
-        else if (saturdayOvertime) parts += "субота"
-        else if (sundayOvertime) parts += "неділя"
-        return parts.joinToString(", ")
     }
 }
 

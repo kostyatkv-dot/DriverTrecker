@@ -64,38 +64,40 @@ fun HomeScreen(
     }
     val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
     val s = data.settings
+    val L = LocalStr.current
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle("Робочий час", Fmt.dayLong(today))
+        ScreenTitle(L.appTitle, L.dayLong(today))
 
         TimerCard(data, now, onStart, onStop, onCancel)
 
         val todaySum = Calc.range(data, today, today)
-        SummaryCard("Сьогодні", null, todaySum, s)
+        SummaryCard(L.today, null, todaySum, s)
         todaySum.days.firstOrNull()?.shifts?.let { list ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(vertical = 4.dp)) {
-                    list.forEach { r -> ShiftRow(r, data, onClick = { onEdit(r.shift) }) }
+                    list.forEach { r -> ShiftRow(r, onClick = { onEdit(r.shift) }) }
                 }
             }
         }
 
         val ws = Calc.weekStart(today)
-        SummaryCard("Цей тиждень", Fmt.period(ws, Calc.weekEnd(today)), Calc.range(data, ws, Calc.weekEnd(today)), s)
+        SummaryCard(L.thisWeek, Fmt.period(ws, Calc.weekEnd(today)), Calc.range(data, ws, Calc.weekEnd(today)), s)
         SummaryCard(
-            "Цей місяць",
-            Fmt.month(today),
+            L.thisMonth,
+            L.month(today),
             Calc.range(data, Calc.monthStart(today), Calc.monthEnd(today)),
             s,
+            showPay = true,
         )
 
         OutlinedButton(onClick = onAddManual, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Add, null)
             Spacer(Modifier.width(8.dp))
-            Text("Додати зміну вручну")
+            Text(L.addManual)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -113,6 +115,7 @@ private fun TimerCard(
     var rateId by rememberSaveable { mutableStateOf(data.rates.firstOrNull()?.id ?: "") }
     if (data.rates.none { it.id == rateId } && data.rates.isNotEmpty()) rateId = data.rates.first().id
     var confirmCancel by remember { mutableStateOf(false) }
+    val L = LocalStr.current
 
     Card(
         Modifier.fillMaxWidth(),
@@ -122,10 +125,10 @@ private fun TimerCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             if (t == null) {
-                Text("Зміна не розпочата", style = MaterialTheme.typography.titleMedium)
+                Text(L.noShift, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
                 if (data.rates.size > 1) {
-                    RatePicker(data.rates, rateId, data.settings.currency, { rateId = it }, Modifier.fillMaxWidth())
+                    RatePicker(data.rates, rateId, { rateId = it }, Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                 }
                 Button(
@@ -134,20 +137,20 @@ private fun TimerCard(
                 ) {
                     Icon(Icons.Filled.PlayArrow, null, Modifier.size(28.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("ПОЧАТИ ЗМІНУ", style = MaterialTheme.typography.titleMedium)
+                    Text(L.startShift, style = MaterialTheme.typography.titleMedium)
                 }
             } else {
                 val elapsed = ((now - t.startMs) / 1000).coerceAtLeast(0)
                 val started = Instant.ofEpochMilli(t.startMs).atZone(ZoneId.systemDefault())
-                Text("Зміна триває", style = MaterialTheme.typography.titleMedium)
+                Text(L.shiftRunning, style = MaterialTheme.typography.titleMedium)
                 Text(
                     "%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60),
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 val dayNote = if (started.toLocalDate() != LocalDate.now()) " (${Fmt.date(started.toLocalDate())})" else ""
-                Text("Початок: ${Fmt.time(started.toLocalTime())}$dayNote")
-                data.rate(t.rateId)?.let { Text("Ставка: ${rateLabel(it, data.settings.currency)}") }
+                Text("${L.startedAt}: ${Fmt.time(started.toLocalTime())}$dayNote")
+                if (data.rates.size > 1) data.rate(t.rateId)?.let { Text("${L.rate}: ${it.name}") }
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = onStop,
@@ -156,9 +159,9 @@ private fun TimerCard(
                 ) {
                     Icon(Icons.Filled.Check, null, Modifier.size(28.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("ЗАВЕРШИТИ ЗМІНУ", style = MaterialTheme.typography.titleMedium)
+                    Text(L.finishShift, style = MaterialTheme.typography.titleMedium)
                 }
-                TextButton(onClick = { confirmCancel = true }) { Text("Скасувати таймер") }
+                TextButton(onClick = { confirmCancel = true }) { Text(L.cancelTimer) }
             }
         }
     }
@@ -166,17 +169,18 @@ private fun TimerCard(
     if (confirmCancel) {
         AlertDialog(
             onDismissRequest = { confirmCancel = false },
-            title = { Text("Скасувати таймер?") },
-            text = { Text("Поточна зміна не буде збережена.") },
-            confirmButton = { TextButton(onClick = { confirmCancel = false; onCancel() }) { Text("Так, скасувати") } },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text("Ні") } },
+            title = { Text(L.cancelTimerQ) },
+            text = { Text(L.cancelTimerText) },
+            confirmButton = { TextButton(onClick = { confirmCancel = false; onCancel() }) { Text(L.yesCancel) } },
+            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(L.no) } },
         )
     }
 }
 
-/** Рядок зміни в списку. */
+/** Рядок зміни в списку (без ставки та оплати). */
 @Composable
-fun ShiftRow(r: ua.worktime.tracker.data.ShiftResult, data: AppData, onClick: () -> Unit) {
+fun ShiftRow(r: ua.worktime.tracker.data.ShiftResult, onClick: () -> Unit) {
+    val L = LocalStr.current
     val sh = r.shift
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -188,8 +192,7 @@ fun ShiftRow(r: ua.worktime.tracker.data.ShiftResult, data: AppData, onClick: ()
                 style = MaterialTheme.typography.titleMedium,
             )
             val parts = mutableListOf<String>()
-            if (sh.breakMin > 0) parts += "перерва ${sh.breakMin} хв"
-            r.rate?.let { if (data.rates.size > 1) parts += it.name }
+            if (sh.breakMin > 0) parts += L.breakN(sh.breakMin)
             if (sh.note.isNotBlank()) parts += sh.note
             if (parts.isNotEmpty()) {
                 Text(
@@ -200,16 +203,9 @@ fun ShiftRow(r: ua.worktime.tracker.data.ShiftResult, data: AppData, onClick: ()
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("${Fmt.hm(r.worked)} год", fontWeight = FontWeight.Bold)
+            Text(L.hours(r.worked), fontWeight = FontWeight.Bold)
             if (r.overtime > 0) {
-                Text("+${Fmt.hm(r.overtime)} понаднорм.", style = MaterialTheme.typography.bodySmall, color = OvertimeColor)
-            }
-            if ((r.rate?.hourly ?: 0.0) > 0) {
-                Text(
-                    Fmt.money(r.pay, data.settings.currency),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Text("+${Fmt.hm(r.overtime)} ${L.overtimeShort}", style = MaterialTheme.typography.bodySmall, color = OvertimeColor)
             }
         }
     }

@@ -50,7 +50,7 @@ data class Summary(val from: LocalDate, val to: LocalDate, val days: List<DayRes
             .map { (_, list) ->
                 val r = list.first().rate
                 RateTotal(
-                    name = r?.name ?: "Без ставки",
+                    name = r?.name ?: "—",
                     hourly = r?.hourly ?: 0.0,
                     regular = list.sumOf { it.regular },
                     overtime = list.sumOf { it.overtime },

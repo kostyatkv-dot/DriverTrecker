@@ -1,18 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Жовто-чорна іконка: шестерня з годинником -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- зубці шестерні -->
+    <path android:fillColor="#1A1A1A" android:pathData="M50,24h8v8h-8z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M50,76h8v8h-8z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M24,50h8v8h-8z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M76,50h8v8h-8z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M31.6,37.3l5.7,-5.7l5.7,5.7l-5.7,5.7z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M65.0,70.7l5.7,-5.7l5.7,5.7l-5.7,5.7z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M65.0,37.3l5.7,-5.7l5.7,5.7l-5.7,5.7z" />
+    <path android:fillColor="#1A1A1A" android:pathData="M31.6,70.7l5.7,-5.7l5.7,5.7l-5.7,5.7z" />
+    <!-- корпус шестерні -->
+    <path android:fillColor="#1A1A1A" android:pathData="M54,30 a24,24 0 1,1 0,48 a24,24 0 1,1 0,-48 Z" />
+    <!-- циферблат -->
+    <path android:fillColor="#FFC20E" android:pathData="M54,37 a17,17 0 1,1 0,34 a17,17 0 1,1 0,-34 Z" />
+    <!-- стрілки -->
     <path
-        android:pathData="M54,30 a24,24 0 1,1 0,48 a24,24 0 1,1 0,-48 Z"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:fillColor="#00000000" />
-    <path
-        android:pathData="M54,39 L54,54 L65,61"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
+        android:pathData="M54,43 L54,54 L62,59"
+        android:strokeColor="#1A1A1A"
+        android:strokeWidth="4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="#00000000" />

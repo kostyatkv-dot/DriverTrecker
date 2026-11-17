@@ -17,6 +17,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,13 +31,21 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import ua.worktime.tracker.MainViewModel
 import ua.worktime.tracker.data.Shift
+import ua.worktime.tracker.data.Str
 import java.time.LocalDate
 
-enum class Tab(val title: String, val icon: ImageVector) {
-    HOME("Головна", Icons.Filled.Home),
-    JOURNAL("Журнал", Icons.AutoMirrored.Filled.List),
-    REPORT("Звіт", Icons.Filled.DateRange),
-    SETTINGS("Налаштування", Icons.Filled.Settings),
+enum class Tab(val icon: ImageVector) {
+    HOME(Icons.Filled.Home),
+    JOURNAL(Icons.AutoMirrored.Filled.List),
+    REPORT(Icons.Filled.DateRange),
+    SETTINGS(Icons.Filled.Settings);
+
+    fun title(L: Str): String = when (this) {
+        HOME -> L.tabHome
+        JOURNAL -> L.tabJournal
+        REPORT -> L.tabReport
+        SETTINGS -> L.tabSettings
+    }
 }
 
 /** Стан відкритого редактора зміни. */
@@ -45,6 +54,14 @@ data class EditorState(val shift: Shift, val isNew: Boolean)
 @Composable
 fun App(vm: MainViewModel = viewModel()) {
     val data by vm.data.collectAsStateWithLifecycle()
+    val L = Str.of(data.settings.language)
+    CompositionLocalProvider(LocalStr provides L) {
+        AppContent(vm, data, L)
+    }
+}
+
+@Composable
+private fun AppContent(vm: MainViewModel, data: ua.worktime.tracker.data.AppData, L: Str) {
     var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
     var editor by remember { mutableStateOf<EditorState?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -78,7 +95,7 @@ fun App(vm: MainViewModel = viewModel()) {
                         selected = tab == t,
                         onClick = { tab = t },
                         icon = { Icon(t.icon, null) },
-                        label = { Text(t.title, maxLines = 1) },
+                        label = { Text(t.title(L), maxLines = 1) },
                     )
                 }
             }
@@ -91,9 +108,9 @@ fun App(vm: MainViewModel = viewModel()) {
                     onStart = vm::startTimer,
                     onStop = {
                         val s = vm.stopTimer()
-                        toast(if (s != null) "Зміну збережено" else "Зміна коротша за хвилину — не збережено")
+                        toast(if (s != null) L.shiftSaved else L.shiftTooShort)
                     },
-                    onCancel = { vm.cancelTimer(); toast("Таймер скасовано") },
+                    onCancel = { vm.cancelTimer(); toast(L.timerCancelled) },
                     onAddManual = { newShift(LocalDate.now()) },
                     onEdit = { editor = EditorState(it, false) },
                 )
@@ -108,9 +125,10 @@ fun App(vm: MainViewModel = viewModel()) {
                     onSaveRate = vm::saveRate,
                     onDeleteRate = { id ->
                         val used = vm.deleteRate(id)
-                        if (used > 0) toast("Ставка використовується у змінах ($used) — спершу змініть їх")
+                        if (used > 0) toast(L.rateInUse(used))
                     },
-                    onSaveSettings = { vm.saveSettings(it); toast("Налаштування збережено") },
+                    onSaveSettings = { vm.saveSettings(it); toast(Str.of(it.language).settingsSaved) },
+                    onLanguage = { code -> vm.saveSettings(data.settings.copy(language = code)) },
                 )
             }
         }
@@ -122,8 +140,8 @@ fun App(vm: MainViewModel = viewModel()) {
             isNew = st.isNew,
             data = data,
             onDismiss = { editor = null },
-            onSave = { vm.saveShift(it); editor = null; toast("Збережено") },
-            onDelete = { vm.deleteShift(it.id); editor = null; toast("Зміну видалено") },
+            onSave = { vm.saveShift(it); editor = null; toast(L.saved) },
+            onDelete = { vm.deleteShift(it.id); editor = null; toast(L.shiftDeleted) },
         )
     }
 }
